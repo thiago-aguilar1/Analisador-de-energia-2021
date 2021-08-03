@@ -14,14 +14,14 @@ Analisador de energia
 
 
 
-#define ledRed = 8;
-#define ledGreen = 4;
-#define botaoUp = 7;
-#define botaoDown = 6;
-#define botaoMenu = 5;
-#define botaoEnter = 3;
-#define botaoCancelar = 2;
-#define botaoGravar = 1;  //pois tem uma função separada só pra ele.
+#define ledRed 8
+#define ledGreen 4
+#define botaoUp 7
+#define botaoDown 6
+#define botaoMenu 5
+#define botaoEnter 3
+#define botaoCancelar 2
+#define botaoGravar 1  //pois tem uma função separada só pra ele.
 
 
 #define ACS_Pin A2                        //Sensor data pin on A0 analog input
@@ -59,17 +59,12 @@ byte seta[8] = { B00000, B00100, B00010, B11111, B00010, B00100, B00000, B00000}
      minAgora,
      minAntes;
 
-
+/*float meiaSenoide, porcaoTempinho, tempinho;*/
 
 char diasDaSemana[7][12] = {"Domingo", "Segunda", "Terca", "Quarta", "Quinta", "Sexta", "Sabado"}; //Dias da semana
 
 
-
 float supplyVoltage;
-float tensao, valorTensao, corrente, valorCorrente, potencia, somaTensao, somaCorrente
-      calibracaoTensao = 0.0, 
-      calibracaoCorrente = 0.0;
-
 
 float ACS_Value;                              //Here we keep the raw data valuess
 float ACS_Value2;                              //Here we keep the raw data valuess
@@ -84,6 +79,24 @@ float slope = 0.0752; // to be adjusted based on calibration testing
 float Amps_TRMS; // estimated actual current in amps
 float AmpsVerdadeiro, pote;
 
+int somaTensao, calibracaoTensao;
+float somaCorrente, calibracaoCorrente; 
+
+
+void botaoCalibracao();
+void calibrarTensao();
+void calibrarTensao2();
+void calibrarCorrente();
+void calibrarCorrente2();
+void detalhesDatahora();
+void verDatahora();
+void calibrarDatahora();
+void botaoGravacao();
+void gravar();
+void leituraTensao();
+void leituraCorrente();
+void potencia();
+void horaMomento();
 
 void setup() {
   pinMode(botaoUp, INPUT_PULLUP);
@@ -93,12 +106,11 @@ void setup() {
   pinMode(botaoCancelar, INPUT_PULLUP);
   pinMode(botaoGravar, INPUT_PULLUP);
 
-
+  pinMode(ledGreen, OUTPUT);
+  pinMode(ledRed, OUTPUT);
+  digitalWrite(ledGreen, HIGH);
+  digitalWrite(ledRed, LOW);
   emon1.voltage(1, VOLT_CAL, 1.7); //PASSA PARA A FUNÇÃO OS PARÂMETROS (PINO ANALÓGIO / VALOR DE CALIBRAÇÃO / MUDANÇA DE FASE)
-
-//****************************************************************asfassfsafsafbfag**********************************************fasfsfsafa***************
-  SD.begin();  
-
   
 
    //Inicializacao do display  
@@ -109,31 +121,7 @@ void setup() {
   lcd.createChar(3, quadradoCheio);
 
 
-  RunningStatistics inputStats;                 // create statistics to look at the raw test signal
-  inputStats.setWindowSecs( windowLength );     //Set the window length
 
-  
-  /* *****************  Apresentação inicial da equiipe no Display  ********************** */ 
-  lcd.clear();
-  lcd.setCursor(5, 0);
-  lcd.print("AMPERE");
-
-  
-  for (int i = 0; i < 16; i++){   /*coloca os quadradinhos ocos */
-    lcd.setCursor(i,1);
-    lcd.write(2);
-  } 
-
-
-  for (int i = 0, j = 0; i <= 90 && j <= 15 ; i+= 6, j++){     
-    meiaSenoide = sin( float(i) * (3.1415/180.0) );
-    porcaoTempinho = 3.0 * float(meiaSenoide*255.0/2.0);
-    tempinho = 3.0 + porcaoTempinho;
-    delay(int(tempinho));
-    lcd.setCursor(j,1);
-    lcd.write(3);         /* colocando aos poucos os quadradinhos cheios */
-
-  }
 
 
 
@@ -147,26 +135,19 @@ void loop() {
   
   
 
+  leituraTensao();
+  leituraCorrente();
+  potencia();
+  horaMomento();
 
-
-  DateTime agora = rtc.now();          // Faz a leitura de dados de data e hora
-  lcd.setCursor(0,0);
-  lcd.print("Potenc:         ");
-  lcd.setCursor(0,1);
-  lcd.print("Hora:           ");
-  lcd.setCursor(8,1);
-  lcd.print(rtc.now().hour());      // Imprime a Hora
-  lcd.print(":");                   // Imprime o texto entre aspas
-  lcd.print(rtc.now().minute());    // Imprime o Minuto
-  
-
-  
-  if(!(digitalRead(botaoEnter))){ 
-    if(telaMomento == 1){   }
+  if(!(digitalRead(botaoGravar))){
+    botaoGravacao();
+  }
+  if(!(digitalRead(botaoMenu))){
+    botaoCalibracao();
   }
   
-  
-  
+  delay(3000);
 
 }
 
@@ -177,28 +158,6 @@ void loop() {
 
 
 
-
-
-
-
-
-/*
-
-void ***************fafaffasdfghggsf(){
-  DateTime agora = rtc.now();          // Faz a leitura de dados de data e hora
-  lcd.setCursor(0,0);
-  lcd.print("                ");
-  lcd.setCursor(5, 0);
-  lcd.print(diasDaSemana[agora.dayOfTheWeek()]);
-  lcd.setCursor(0,1);
-  lcd.print("Hora:           ");
-  lcd.setCursor(8,1);
-  lcd.print(rtc.now().hour());      // Imprime a Hora
-  lcd.print(":");                   // Imprime o texto entre aspas
-  lcd.print(rtc.now().minute());    // Imprime o Minuto
-}
-
-*/
 
 
 
@@ -300,7 +259,7 @@ void botaoCalibracao(){
 
 //------------------------------------------------------------------------------------------------
 
-void calibrarTensao{
+void calibrarTensao(){
   DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
   minAntes = agora.minute(); 
   
@@ -324,13 +283,13 @@ void calibrarTensao{
 
 
 
-void calibrarTensao2{
+void calibrarTensao2(){
   DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
   minAntes = agora.minute(); 
   
   while(1){
   
-  somaTensao = tensao + calibracaoTensao
+  somaTensao = (int)supplyVoltage + calibracaoTensao;
     
   lcd.setCursor(0,0);
   lcd.print("Calibre a tensao");
@@ -362,7 +321,7 @@ void calibrarTensao2{
       lcd.print("Calibracao tensa");
       lcd.setCursor(0,1);
       lcd.print("   esta nula    ");
-      delay(1000);
+      delay(700);
     }
     
     DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
@@ -394,7 +353,7 @@ void calibrarTensao2{
 
 //-------------------------------------------------------------------------------------------
 
-void calibrarCorrente{
+void calibrarCorrente(){
   DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
   minAntes = agora.minute(); 
   
@@ -418,13 +377,13 @@ void calibrarCorrente{
 
 
 
-void calibrarCorrente2{
+void calibrarCorrente2(){
   DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
   minAntes = agora.minute(); 
   
   while(1){
   
-  somaCorrente = corrente + calibracaoCorrente
+  somaCorrente = AmpsVerdadeiro + calibracaoCorrente;
     
   lcd.setCursor(0,0);
   lcd.print("Calibre corrente");
@@ -440,7 +399,7 @@ void calibrarCorrente2{
   if(!(digitalRead(botaoEnter))){ break; }
     
   if(!(digitalRead(botaoUp))){
-    calibracaoCorrente++;
+    calibracaoCorrente = calibracaoCorrente + 0.01;
 
     DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
     minAntes = agora.minute();        //renova o tempo de duração
@@ -448,15 +407,15 @@ void calibrarCorrente2{
 
     
   if(!(digitalRead(botaoDown))){
-    if(calibracaoCorrente){
-      calibracaoCorrente--;  
+    if(calibracaoCorrente > 0.0){
+      calibracaoCorrente = calibracaoCorrente - 0.01;  
     }
     else{
       lcd.setCursor(0,0);
       lcd.print("Calibrac corrent");
       lcd.setCursor(0,1);
       lcd.print("   esta nula    ");
-      delay(1000);
+      delay(700);
     }
     
     DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
@@ -472,7 +431,7 @@ void calibrarCorrente2{
   
 }
 
-
+}
 
 
 
@@ -500,7 +459,7 @@ void calibrarCorrente2{
 
 //------------------------------------------------------------------------------------------------
 
-void detalhesDatahora{
+void detalhesDatahora(){
 
 
   byte posicaoSeta = 0;    // pode ser igual a 0 ou 1;
@@ -678,22 +637,22 @@ void calibrarDatahora(){
     if(!(digitalRead(botaoDown))){
       switch(telaMomento){
         case 1: 
-          if(dia!=0){dia--}; 
+          if(dia!=0){dia--;} 
           break;
         case 2: 
-          if(mes!=0){mes--}; 
+          if(mes!=0){mes--;} 
           break;
         case 3: 
-          if(ano!=0){ano--}; 
+          if(ano!=0){ano--;} 
           break;
         case 4: 
-          if(hora!=0){hora--}; 
+          if(hora!=0){hora--;} 
           break;
         case 5: 
-          if(minuto!=0){minuto--}; 
+          if(minuto!=0){minuto--;} 
           break;
         case 6: 
-          if(segundo){segundo--}; 
+          if(segundo){segundo--;} 
           break;
       }
       DateTime agora = rtc.now();    // Faz a leitura de dados de data e hora
@@ -738,21 +697,39 @@ void botaoGravacao(){
    lcd.setCursor(0,1);
    lcd.print(" uma gravacao?  ");
    while(1){
+    
     if(!(digitalRead(botaoEnter))){
       gravar();
+      digitalWrite(ledGreen, HIGH);
+      digitalWrite(ledRed, LOW);
       break; 
     }
-    if(!(digitalRead(botaoCancelar))){ break;}
+    
+    if(!(digitalRead(botaoCancelar))){ 
+      break;
+      }
+    
     delay(300);
-   }
- 
+    
+    }
+   
 }
 
 
 
 void gravar(){
+  digitalWrite(ledGreen, LOW);
+  digitalWrite(ledRed, HIGH);
+  DateTime agora = rtc.now();  // Faz a leitura de dados de data e hora
+
   
-  byte
+  String tituloGravacao, linhaGravacao;
+  byte nomeDia,
+       nomeMes,
+       nomeAno,
+       nomeHora,
+       nomeMinuto;
+  
   
   lcd.setCursor(0,0);
 //lcd.print("                ");
@@ -780,47 +757,76 @@ void gravar(){
   return;
   }
 
-  myFile = SD.open("usina.txt", FILE_WRITE); // Cria / Abre arquivo .txt
+  while(1){
 
-  String nomeGravacao;
-  byte nomeDia = agora.day(),
-       nomeMes = agora.month(),
-       nomeAno = agora.year(),
-       nomeHora = agora.hour(),
-       nomeMinuto = agora.minute();
+  minEspera = abs(minAgora-minAntes);
+  if( minEspera >1 ){
+    
+    DateTime agora = rtc.now();  // Faz a leitura de dados de data e hora
+    String tituloGravacao, linhaGravacao;
+    nomeDia = agora.day();
+    nomeMes = agora.month();
+    nomeAno = agora.year();
+    nomeHora = agora.hour();
+    nomeMinuto = agora.minute();
+    
+    minAntes = agora.minute();
+    
+  tituloGravacao = String(nomeDia) + String(nomeMes) + String(nomeAno) + String(nomeHora) + String(nomeMinuto);
+  linhaGravacao = String(nomeDia) + " " + String(nomeMes) + " " +  String(nomeAno) + " " +  String(nomeHora) + " " +  String(nomeMinuto) + " " + String(supplyVoltage) + " " + String(AmpsVerdadeiro);    ;
+
+  myFile = SD.open(tituloGravacao, FILE_WRITE); // Cria / Abre arquivo .txt
+  if (myFile) { // Se o Arquivo abrir
+    myFile.println(linhaGravacao); // Escreve no Arquivo
+    myFile.close(); // Fecha o Arquivo após escrever
+  }
+  else {     // Se o Arquivo não abrir
+    Serial.println("Erro ao Abrir Arquivo .txt"); // Imprime na tela
+  }
+
+  }
   
-  nomeGravacao = String(nomeDia) + String(nomeMes) + String(nomeAno) + String(nomeHora) + String(nomeMinuto);
+  if(!(digitalRead(botaoCancelar))){ 
+    lcd.setCursor(0,0);
+    lcd.print(" Deseja parar a ");
+    lcd.setCursor(0,1);
+    lcd.print("   Gravação?    ");
+    if(!(digitalRead(botaoEnter)))
+      break;
+  }
+
+    leituraTensao();
+    leituraCorrente();
+    potencia();
+    horaMomento();
   
+  
+   delay(3000);
+  }
 }
 
-
-
-
-
-
-
-
-
-
-
 void leituraTensao(){
-
   emon1.calcVI(17,2000); //FUNÇÃO DE CÁLCULO (17 SEMICICLOS, TEMPO LIMITE PARA FAZER A MEDIÇÃO)      
   supplyVoltage   = emon1.Vrms; //VARIÁVEL RECEBE O VALOR DE TENSÃO RMS OBTIDO
+
+  somaTensao = (int)supplyVoltage + calibracaoTensao;
   
   lcd.setCursor(0,0);
   lcd.print(" tensao:        ");
   lcd.setCursor(9,0);
-  lcd.print(suplyVoltage);
+  lcd.print(somaTensao);
   lcd.setCursor(14,0);
   lcd.print("V");
-  
 }
-
 
 
 void leituraCorrente(){
 
+    
+  RunningStatistics inputStats;                 // create statistics to look at the raw test signal
+  inputStats.setWindowSecs( windowLength );     //Set the window length
+
+    
     ACS_Value = analogRead(ACS_Pin);  // read the analog in value:
     inputStats.input(ACS_Value);  // log to Stats function
     Amps_TRMS = intercept + slope * inputStats.sigma();
@@ -848,22 +854,25 @@ void leituraCorrente(){
       }
     }
 
- 
+    somaCorrente = AmpsVerdadeiro + calibracaoCorrente;
+    
     lcd.setCursor(0,1);
     lcd.print("corrente:       ");
     lcd.setCursor(10,1);
-    lcd.print( AmpVerdadeiro );
+    lcd.print(somaCorrente);
     lcd.setCursor(15,1);
     lcd.print("A");  
     
     
 }
-  
+
+
+
+
 
 
 void potencia(){
-
-  pote = suplyVoltage * AmpVerdadeiro;
+  pote = supplyVoltage * AmpsVerdadeiro;
 
   lcd.setCursor(0,0);
   lcd.print("Pot:            ");
@@ -875,12 +884,9 @@ void potencia(){
 
 
 
-
-
 void horaMomento(){
-
-  
   DateTime agora = rtc.now();  // Faz a leitura de dados de data e hora
+  minAgora = agora.minute();
   
   lcd.setCursor(0,1);
   lcd.print(" Hora:          ");
@@ -889,11 +895,6 @@ void horaMomento(){
   lcd.print( "/" );
   lcd.print( agora.minute() );
 }
-
-
-
-
-
 
 
 
